@@ -1,0 +1,54 @@
+import serial
+import pyvjoy
+import time
+
+# -------------------------
+# Arduino Serial Port
+# -------------------------
+ser = serial.Serial("COM4", 115200, timeout=1)
+
+# -------------------------
+# Connect to vJoy Device 1
+# -------------------------
+j = pyvjoy.VJoyDevice(1)
+
+print("Connected to Arduino...")
+time.sleep(2)
+
+while True:
+
+    try:
+        line = ser.readline().decode().strip()
+
+        if line:
+
+            values = line.split(',')
+
+            if len(values) == 7:
+
+                x = int(values[0])
+                y = int(values[1])
+                throttle = int(values[2])
+
+                joyButton = int(values[3])
+                fireButton = int(values[4])
+                gearButton = int(values[5])
+
+                rudder = int(values[6])
+
+                x = int(x * 32767 / 1023)
+                y = int(y * 32767 / 1023)
+                throttle = int(throttle * 32767 / 1023)
+                rudder = int(rudder * 32767 / 1023)
+
+                j.set_axis(pyvjoy.HID_USAGE_X, x)
+                j.set_axis(pyvjoy.HID_USAGE_Y, y)
+                j.set_axis(pyvjoy.HID_USAGE_Z, throttle)
+                j.set_axis(pyvjoy.HID_USAGE_RZ, rudder)
+
+                j.set_button(1, joyButton)
+                j.set_button(2, fireButton)
+                j.set_button(3, gearButton)
+
+    except Exception as e:
+        print(e)
