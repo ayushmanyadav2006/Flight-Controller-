@@ -1,0 +1,102 @@
+#include <Servo.h>
+
+Servo throttleServo;
+
+// -------- Pins --------
+const int joyX = A0;
+const int joyY = A1;
+const int throttlePot = A2;
+
+const int joyButton = 4;
+const int fireButton = 5;
+const int gearButton = 6;
+
+const int rudderLeftBtn = 2;
+const int rudderRightBtn = 3;
+
+const int servoPin = 7;
+
+const int ledRight = 9;
+const int ledLeft = 8;
+const int ledForward = 10;
+const int ledBackward = 11;
+
+// Simple debounce timing
+unsigned long lastDebounceTime = 0;
+const int debounceDelay = 5;
+
+void setup()
+{
+  Serial.begin(115200);
+
+  pinMode(joyButton, INPUT_PULLUP);
+  pinMode(fireButton, INPUT_PULLUP);
+  pinMode(gearButton, INPUT_PULLUP);
+
+  pinMode(rudderLeftBtn, INPUT_PULLUP);
+  pinMode(rudderRightBtn, INPUT_PULLUP);
+
+  pinMode(ledForward, OUTPUT);
+  pinMode(ledBackward, OUTPUT);
+  pinMode(ledLeft, OUTPUT);
+  pinMode(ledRight, OUTPUT);
+
+  throttleServo.attach(servoPin);
+}
+
+void loop()
+{
+  // -------- Read analog --------
+  int x = analogRead(joyX);
+  int y = analogRead(joyY);
+  int throttle = analogRead(throttlePot);
+
+  // -------- LEDs --------
+  digitalWrite(ledForward, LOW);
+  digitalWrite(ledBackward, LOW);
+  digitalWrite(ledLeft, LOW);
+  digitalWrite(ledRight, LOW);
+
+  if (y > 700)
+    digitalWrite(ledForward, HIGH);
+  else if (y < 300)
+    digitalWrite(ledBackward, HIGH);
+
+  if (x > 700)
+    digitalWrite(ledRight, HIGH);
+  else if (x < 300)
+    digitalWrite(ledLeft, HIGH);
+
+  // -------- Servo --------
+  int angle = map(throttle, 0, 1023, 0, 180);
+  throttleServo.write(angle);
+
+  // -------- Buttons --------
+  int joySW = !digitalRead(joyButton);
+  int fire = !digitalRead(fireButton);
+  int gear = !digitalRead(gearButton);
+
+  // -------- Rudder (corrected logic) --------
+  int rudder = 0;
+
+  bool leftPressed = (digitalRead(rudderLeftBtn) == LOW);
+  bool rightPressed = (digitalRead(rudderRightBtn) == LOW);
+
+  if (leftPressed && !rightPressed)
+    rudder = -1;
+  else if (rightPressed && !leftPressed)
+    rudder = 1;
+  else
+    rudder = 0;
+
+  // -------- Send Data --------
+  Serial.print(x); Serial.print(",");
+  Serial.print(y); Serial.print(",");
+  Serial.print(throttle); Serial.print(",");
+  Serial.print(joySW); Serial.print(",");
+  Serial.print(fire); Serial.print(",");
+  Serial.print(gear); Serial.print(",");
+  Serial.println(rudder);
+
+  delay(20);
+}
