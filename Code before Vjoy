@@ -1,0 +1,102 @@
+#include <Servo.h>
+
+Servo throttleServo;
+
+// ---------------- Pin Definitions ----------------
+
+// Joystick
+const int joyX = A0;
+const int joyY = A1;
+
+// Throttle Potentiometer
+const int throttlePot = A2;
+
+// Buttons
+const int fireButton = 3;
+const int gearButton = 4;
+
+// LEDs
+const int ledForward  = 10;
+const int ledLeft     = 8;
+const int ledRight    = 9;
+const int ledBackward = 11;
+
+// Servo
+const int servoPin = 5;
+
+// Button state variables
+bool lastFireState = HIGH;
+bool lastGearState = HIGH;
+
+void setup()
+{
+  Serial.begin(9600);
+
+  pinMode(ledForward, OUTPUT);
+  pinMode(ledBackward, OUTPUT);
+  pinMode(ledLeft, OUTPUT);
+  pinMode(ledRight, OUTPUT);
+
+  pinMode(fireButton, INPUT_PULLUP);
+  pinMode(gearButton, INPUT_PULLUP);
+
+  throttleServo.attach(servoPin);
+}
+
+void loop()
+{
+  //================ JOYSTICK =================
+
+  int x = analogRead(joyX);
+  int y = analogRead(joyY);
+
+  digitalWrite(ledForward, LOW);
+  digitalWrite(ledBackward, LOW);
+  digitalWrite(ledLeft, LOW);
+  digitalWrite(ledRight, LOW);
+
+  // Forward
+  if (y > 700)
+    digitalWrite(ledForward, HIGH);
+
+  // Backward
+  else if (y < 300)
+    digitalWrite(ledBackward, HIGH);
+
+  // Right
+  if (x > 700)
+    digitalWrite(ledRight, HIGH);
+
+  // Left
+  else if (x < 300)
+    digitalWrite(ledLeft, HIGH);
+
+  //================ THROTTLE =================
+
+  int throttleValue = analogRead(throttlePot);
+
+  // Convert potentiometer value to servo angle
+  int angle = map(throttleValue, 0, 1023, 0, 180);
+
+  throttleServo.write(angle);
+
+  //================ BUTTONS =================
+
+  bool fireState = digitalRead(fireButton);
+  bool gearState = digitalRead(gearButton);
+
+  if (fireState == LOW && lastFireState == HIGH)
+  {
+    Serial.println("Button at Digital Pin 3 is Pressed");
+  }
+
+  if (gearState == LOW && lastGearState == HIGH)
+  {
+    Serial.println("Button at Digital Pin 4 is Pressed");
+  }
+
+  lastFireState = fireState;
+  lastGearState = gearState;
+
+  delay(20);
+}
