@@ -1,0 +1,118 @@
+import serial
+import pyvjoy
+import time
+
+# -------------------------
+# Arduino Serial Port
+# -------------------------
+ser = serial.Serial("COM4", 115200, timeout=1)
+
+# -------------------------
+# Connect to vJoy Device 1
+# -------------------------
+j = pyvjoy.VJoyDevice(1)
+
+print("Connected to Arduino...")
+time.sleep(2)
+
+# -------------------------
+# Calibration
+# -------------------------
+CENTER = 512
+DEADZONE = 25
+
+# -------------------------
+# Deadzone Function
+# -------------------------
+def apply_deadzone(value):
+
+    if abs(value - CENTER) <= DEADZONE:
+        return CENTER
+
+    return value
+
+
+# -------------------------
+# Map joystick axis
+# -------------------------
+def map_axis(value):
+
+    value = apply_deadzone(value)
+    value = max(0, min(1023, value))
+
+    return int(value * 32767 / 1023)
+
+
+# -------------------------
+# Exponential response
+# -------------------------
+def expo(value):
+
+    normalized = (value - 16384) / 16384.0
+    normalized = normalized ** 3
+
+    return int(normalized * 16384 + 16384)
+
+
+# -------------------------
+# Rudder Mapping
+# -------------------------
+def map_rudder(value):
+
+    # Arduino sends -512 to +512
+
+    value = max(-512, min(512, value))
+
+    return int((value + 512) * 32767 / 1024)
+
+
+# -------------------------
+# Main Loop
+# -------------------------
+while True:
+
+    try:
+
+        line = ser.readline().decode().strip()
+
+        if not line:
+            continue
+
+        values = line.split(',')
+
+        if len(values) != 5:
+            continue
+
+        x = int(values[0])
+        y = int(values[1])
+        throttle = int(values[2])
+
+        flapButton = int(values[3])
+
+        rudder = int(values[4])
+
+        # -------------------------
+        # Convert Axes
+        # -------------------------
+
+        x = expo(map_axis(x))
+        y = expo(map_axis(y))
+
+        throttle = int(throttle * 32767 / 1023)
+
+        rudder = map_rudder(rudder)
+
+        # -------------------------
+        # Send to vJoy
+        # -------------------------
+
+        j.set_axis(pyvjoy.HID_USAGE_X, x)
+        j.set_axis(pyvjoy.HID_USAGE_Y, y)
+        j.set_axis(pyvjoy.HID_USAGE_Z, throttle)
+        j.set_axis(pyvjoy.HID_USAGE_RZ, rudder)
+
+        # Button 1 = Flaps
+        j.set_button(1, flapButton)
+
+    except Exception as e:
+        print(e)
