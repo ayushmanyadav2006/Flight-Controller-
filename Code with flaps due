@@ -1,0 +1,185 @@
+#include <Servo.h>
+
+Servo throttleServo;
+
+// -------- Analog Inputs --------
+const int joyX = A0;
+const int joyY = A1;
+const int throttlePot = A2;
+
+// -------- Buttons --------
+const int flapButton = 4; //flaps are controllable, so will use this for airbrakes which is not implemented yet
+
+// Rudder Buttons
+const int rudderLeftBtn = 3;
+const int rudderRightBtn = 2;
+
+// -------- Servo --------
+const int servoPin = 7;
+
+// -------- LEDs --------
+const int ledRight = 9;
+const int ledLeft = 8;
+const int ledForward = 10;
+const int ledBackward = 11;
+
+// =====================================================
+// Rudder Variables
+// =====================================================
+
+int rudder = 0;
+
+const int rudderMax = 512;
+const int rudderReturn = 4;
+
+// Hold timing
+unsigned long leftPressStart = 0;
+unsigned long rightPressStart = 0;
+
+bool lastLeftState = false;
+bool lastRightState = false;
+
+// =====================================================
+
+void setup()
+{
+  Serial.begin(115200);
+
+  pinMode(flapButton, INPUT_PULLUP);
+
+  pinMode(rudderLeftBtn, INPUT_PULLUP);
+  pinMode(rudderRightBtn, INPUT_PULLUP);
+
+  pinMode(ledForward, OUTPUT);
+  pinMode(ledBackward, OUTPUT);
+  pinMode(ledLeft, OUTPUT);
+  pinMode(ledRight, OUTPUT);
+
+  throttleServo.attach(servoPin);
+}
+
+void loop()
+{
+  // -----------------------------
+  // Read Analog Inputs
+  // -----------------------------
+  int x = analogRead(joyX);
+  int y = analogRead(joyY);
+  int throttle = analogRead(throttlePot);
+
+  // -----------------------------
+  // LEDs
+  // -----------------------------
+  digitalWrite(ledForward, LOW);
+  digitalWrite(ledBackward, LOW);
+  digitalWrite(ledLeft, LOW);
+  digitalWrite(ledRight, LOW);
+
+  if (y > 700)
+    digitalWrite(ledForward, HIGH);
+  else if (y < 300)
+    digitalWrite(ledBackward, HIGH);
+
+  if (x > 700)
+    digitalWrite(ledRight, HIGH);
+  else if (x < 300)
+    digitalWrite(ledLeft, HIGH);
+
+  // -----------------------------
+  // Servo
+  // -----------------------------
+  int angle = map(throttle, 0, 1023, 0, 180);
+  throttleServo.write(angle);
+
+  // -----------------------------
+  // Flap Button
+  // -----------------------------
+  int flap = !digitalRead(flapButton);
+
+  // -----------------------------
+  // Rudder
+  // -----------------------------
+
+  bool leftPressed = (digitalRead(rudderLeftBtn) == LOW);
+  bool rightPressed = (digitalRead(rudderRightBtn) == LOW);
+
+  unsigned long now = millis();
+
+  // Detect new press
+  if (leftPressed && !lastLeftState)
+      leftPressStart = now;
+
+  if (rightPressed && !lastRightState)
+      rightPressStart = now;
+
+  lastLeftState = leftPressed;
+  lastRightState = rightPressed;
+
+  int step = 2;
+
+  if (leftPressed || rightPressed)
+  {
+      unsigned long holdTime =
+          leftPressed ? (now - leftPressStart) :
+                        (now - rightPressStart);
+
+      if (holdTime > 200)
+          step = 4;
+
+      if (holdTime > 500)
+          step = 7;
+
+      if (holdTime > 900)
+          step = 11;
+
+      if (holdTime > 1400)
+          step = 16;
+  }
+
+  if (leftPressed && !rightPressed)
+  {
+      rudder -= step;
+  }
+  else if (rightPressed && !leftPressed)
+  {
+      rudder += step;
+  }
+  else
+  {
+      if (rudder > 0)
+      {
+          rudder -= rudderReturn;
+
+          if (rudder < 0)
+              rudder = 0;
+      }
+      else if (rudder < 0)
+      {
+          rudder += rudderReturn;
+
+          if (rudder > 0)
+              rudder = 0;
+      }
+  }
+
+  rudder = constrain(rudder, -rudderMax, rudderMax);
+
+  // -----------------------------
+  // Send Serial
+  // -----------------------------
+  Serial.print(x);
+  Serial.print(",");
+
+  Serial.print(y);
+  Serial.print(",");
+
+  Serial.print(throttle);
+  Serial.print(",");
+
+  Serial.print(flap);
+  Serial.print(",");
+
+  Serial.println(rudder);
+
+  delay(20);
+}
